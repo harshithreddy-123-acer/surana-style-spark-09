@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from 'react';
 import { Send, Mic, MicOff, User, Bot, Image as ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -7,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import { getRunwareService, GeneratedImage } from './RunwareService';
+import { getGeminiService } from '../services/GeminiService';
 
 interface Message {
   id: string;
@@ -30,19 +30,21 @@ const ChatBot = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [apiKey, setApiKey] = useState(localStorage.getItem('runwareApiKey') || '');
   const [showApiKeyInput, setShowApiKeyInput] = useState(!localStorage.getItem('runwareApiKey'));
-  
+  const [geminiApiKey, setGeminiApiKey] = useState(localStorage.getItem('geminiApiKey') || '');
+  const [showGeminiApiKeyInput, setShowGeminiApiKeyInput] = useState(!localStorage.getItem('geminiApiKey'));
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
-  
+
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
-  
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
-  
+
   const handleSendMessage = async () => {
     if (inputValue.trim() === '') return;
     
@@ -58,37 +60,45 @@ const ChatBot = () => {
     setIsLoading(true);
     
     try {
-      // Determine if the message is asking for a design or general advice
       const isDesignRequest = inputValue.toLowerCase().includes('design') || 
-                              inputValue.toLowerCase().includes('generate') ||
-                              inputValue.toLowerCase().includes('create') ||
-                              inputValue.toLowerCase().includes('show me');
+                            inputValue.toLowerCase().includes('generate') ||
+                            inputValue.toLowerCase().includes('create') ||
+                            inputValue.toLowerCase().includes('show me');
       
-      // Create bot response
-      let botResponse: Message = {
+      let responseText = '';
+      if (geminiApiKey) {
+        try {
+          const geminiService = getGeminiService(geminiApiKey);
+          responseText = await geminiService.chat(inputValue);
+        } catch (error) {
+          console.error('Gemini chat error:', error);
+          toast.error('Failed to get AI response. Please check your Gemini API key.');
+          responseText = "I'm sorry, I couldn't process your request right now. Please try again later.";
+        }
+      } else {
+        responseText = generateBotResponse(inputValue, isDesignRequest);
+      }
+
+      const botResponse: Message = {
         id: (Date.now() + 1).toString(),
-        text: generateBotResponse(inputValue, isDesignRequest),
+        text: responseText,
         sender: 'bot',
         timestamp: new Date(),
       };
       
-      // If it's a design request and we have an API key, generate an image
+      setMessages(prev => [...prev, botResponse]);
+      
       if (isDesignRequest && apiKey) {
         try {
           const prompt = `Interior design: ${inputValue}`;
           const runwareService = getRunwareService(apiKey);
           
-          // Add text response
-          setMessages(prev => [...prev, botResponse]);
-          
-          // Generate image
           const generatedImage = await runwareService.generateImage({
             positivePrompt: prompt,
             width: 1024,
             height: 768
           });
           
-          // Add image response
           const imageMessage: Message = {
             id: (Date.now() + 2).toString(),
             text: "Here's a design based on your request:",
@@ -100,39 +110,24 @@ const ChatBot = () => {
           setMessages(prev => [...prev, imageMessage]);
         } catch (error) {
           console.error('Image generation error:', error);
-          toast.error('Failed to generate image. Please check your API key.');
-          
-          const errorMessage: Message = {
-            id: (Date.now() + 3).toString(),
-            text: "I'm sorry, I couldn't generate an image at this time. Let me know if you'd like to try something else!",
-            sender: 'bot',
-            timestamp: new Date(),
-          };
-          
-          setMessages(prev => [...prev, errorMessage]);
+          toast.error('Failed to generate image. Please check your Runware API key.');
         }
-      } else {
-        // Just add the text response if not a design request or no API key
-        setMessages(prev => [...prev, botResponse]);
       }
     } catch (error) {
       console.error('Error:', error);
-      
       const errorMessage: Message = {
-        id: (Date.now() + 4).toString(),
+        id: (Date.now() + 3).toString(),
         text: "I'm sorry, I encountered an error. Please try again later.",
         sender: 'bot',
         timestamp: new Date(),
       };
-      
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
     }
   };
-  
+
   const generateBotResponse = (userInput: string, isDesignRequest: boolean): string => {
-    // Simple response generation for demo
     const lowerInput = userInput.toLowerCase();
     
     if (isDesignRequest) {
@@ -153,14 +148,14 @@ const ChatBot = () => {
       return "Thank you for sharing. To provide the best advice, could you tell me more about your space? What's your style preference, budget, and which room are you designing?";
     }
   };
-  
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
     }
   };
-  
+
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -177,15 +172,12 @@ const ChatBot = () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
         audioChunksRef.current = [];
         
-        // Here you would send this to a speech-to-text service
-        // For now, we'll simulate with a timeout
         setIsLoading(true);
         setTimeout(() => {
           const simulatedText = "I'd like to redesign my living room with a modern style";
           setInputValue(simulatedText);
           setIsLoading(false);
           
-          // Close all tracks to properly stop the microphone
           stream.getTracks().forEach(track => track.stop());
         }, 1500);
       };
@@ -198,7 +190,7 @@ const ChatBot = () => {
       toast.error('Could not access microphone. Please check your permissions.');
     }
   };
-  
+
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
@@ -206,7 +198,7 @@ const ChatBot = () => {
       toast.info("Processing your voice input...");
     }
   };
-  
+
   const toggleRecording = () => {
     if (isRecording) {
       stopRecording();
@@ -214,7 +206,7 @@ const ChatBot = () => {
       startRecording();
     }
   };
-  
+
   const saveApiKey = () => {
     if (apiKey.trim()) {
       localStorage.setItem('runwareApiKey', apiKey);
@@ -224,7 +216,77 @@ const ChatBot = () => {
       toast.error('Please enter a valid API key');
     }
   };
-  
+
+  const saveGeminiApiKey = () => {
+    if (geminiApiKey.trim()) {
+      localStorage.setItem('geminiApiKey', geminiApiKey);
+      setShowGeminiApiKeyInput(false);
+      toast.success('Gemini API key saved!');
+    } else {
+      toast.error('Please enter a valid Gemini API key');
+    }
+  };
+
+  if (showApiKeyInput || showGeminiApiKeyInput) {
+    return (
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <Card className="border shadow-lg">
+          <CardContent className="p-8">
+            <div className="text-center mb-6">
+              <Bot className="h-12 w-12 mx-auto text-accent mb-4" />
+              <h2 className="text-3xl font-serif font-bold">AI Design Assistant</h2>
+              <p className="text-muted-foreground mt-2">
+                Set up your AI credentials to get started
+              </p>
+            </div>
+            
+            <div className="max-w-md mx-auto space-y-8">
+              {showApiKeyInput && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium">Enter your Runware AI API Key</h3>
+                  <p className="text-muted-foreground text-sm">
+                    Get your API key from{" "}
+                    <a href="https://runware.ai" target="_blank" rel="noreferrer" className="text-accent underline">
+                      runware.ai
+                    </a>
+                  </p>
+                  <input
+                    type="password"
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder="Enter Runware API key"
+                    className="w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-accent"
+                  />
+                  <Button onClick={saveApiKey} className="w-full">Save Runware API Key</Button>
+                </div>
+              )}
+              
+              {showGeminiApiKeyInput && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium">Enter your Gemini AI API Key</h3>
+                  <p className="text-muted-foreground text-sm">
+                    Get your API key from{" "}
+                    <a href="https://makersuite.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-accent underline">
+                      Google AI Studio
+                    </a>
+                  </p>
+                  <input
+                    type="password"
+                    value={geminiApiKey}
+                    onChange={(e) => setGeminiApiKey(e.target.value)}
+                    placeholder="Enter Gemini API key"
+                    className="w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-accent"
+                  />
+                  <Button onClick={saveGeminiApiKey} className="w-full">Save Gemini API Key</Button>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       <Card className="border shadow-lg h-[700px] flex flex-col">

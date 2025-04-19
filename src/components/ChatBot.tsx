@@ -5,24 +5,36 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Bot } from 'lucide-react';
-import { toast } from 'sonner';
-import { useChat } from '@/hooks/useChat';
-import ApiKeyForm from './chat/ApiKeyForm';
 import MessageList from './chat/MessageList';
 import ChatInput from './chat/ChatInput';
+import ApiKeySetup from './chat/ApiKeySetup';
+import { useChat } from '@/hooks/useChat';
+import { useVoiceRecording } from '@/hooks/useVoiceRecording';
+import { useApiKeyManagement } from '@/hooks/useApiKeyManagement';
 
 const ChatBot = () => {
   const [inputValue, setInputValue] = useState('');
-  const [isRecording, setIsRecording] = useState(false);
-  const [apiKey, setApiKey] = useState(localStorage.getItem('runwareApiKey') || '');
-  const [showApiKeyInput, setShowApiKeyInput] = useState(!localStorage.getItem('runwareApiKey'));
-  const [geminiApiKey, setGeminiApiKey] = useState(localStorage.getItem('geminiApiKey') || '');
-  const [showGeminiApiKeyInput, setShowGeminiApiKeyInput] = useState(!localStorage.getItem('geminiApiKey'));
-
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  
+
+  const { 
+    apiKey, 
+    geminiApiKey, 
+    showApiKeyInput, 
+    showGeminiApiKeyInput,
+    setApiKey,
+    setGeminiApiKey, 
+    saveApiKey, 
+    saveGeminiApiKey,
+    setShowApiKeyInput,
+    setShowGeminiApiKeyInput
+  } = useApiKeyManagement();
+
+  const { 
+    isRecording, 
+    startRecording, 
+    stopRecording 
+  } = useVoiceRecording();
+
   const { messages, isLoading, handleSendMessage: sendMessage } = useChat();
 
   useEffect(() => {
@@ -45,48 +57,6 @@ const ChatBot = () => {
     }
   };
 
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-      
-      mediaRecorder.ondataavailable = (event) => {
-        audioChunksRef.current.push(event.data);
-      };
-      
-      mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
-        audioChunksRef.current = [];
-        
-        setIsRecording(false);
-        setTimeout(() => {
-          const simulatedText = "I'd like to redesign my living room with a modern style";
-          setInputValue(simulatedText);
-          
-          stream.getTracks().forEach(track => track.stop());
-        }, 1500);
-      };
-      
-      mediaRecorder.start();
-      setIsRecording(true);
-      toast.info("Recording started. Click the button again to stop.");
-    } catch (error) {
-      console.error('Error accessing microphone:', error);
-      toast.error('Could not access microphone. Please check your permissions.');
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      toast.info("Processing your voice input...");
-    }
-  };
-
   const toggleRecording = () => {
     if (isRecording) {
       stopRecording();
@@ -95,29 +65,9 @@ const ChatBot = () => {
     }
   };
 
-  const saveApiKey = () => {
-    if (apiKey.trim()) {
-      localStorage.setItem('runwareApiKey', apiKey);
-      setShowApiKeyInput(false);
-      toast.success('API key saved!');
-    } else {
-      toast.error('Please enter a valid API key');
-    }
-  };
-
-  const saveGeminiApiKey = () => {
-    if (geminiApiKey.trim()) {
-      localStorage.setItem('geminiApiKey', geminiApiKey);
-      setShowGeminiApiKeyInput(false);
-      toast.success('Gemini API key saved!');
-    } else {
-      toast.error('Please enter a valid Gemini API key');
-    }
-  };
-
   if (showApiKeyInput || showGeminiApiKeyInput) {
     return (
-      <ApiKeyForm
+      <ApiKeySetup
         apiKey={apiKey}
         geminiApiKey={geminiApiKey}
         setApiKey={setApiKey}

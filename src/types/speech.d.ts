@@ -1,4 +1,3 @@
-
 interface SpeechRecognition extends EventTarget {
   continuous: boolean;
   interimResults: boolean;
@@ -34,10 +33,11 @@ interface SpeechRecognitionErrorEvent extends Event {
   message: string;
 }
 
+// Declare the DOM types globally
 declare global {
   interface Window {
-    SpeechRecognition: new () => SpeechRecognition;
-    webkitSpeechRecognition: new () => SpeechRecognition;
+    SpeechRecognition: typeof SpeechRecognition;
+    webkitSpeechRecognition: typeof SpeechRecognition;
   }
 }
 

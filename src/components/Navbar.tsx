@@ -1,11 +1,28 @@
-
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Menu, X, User, Home, Palette, MessageSquare, Image, Calculator, BookImage, LogIn } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Menu, X, User, Home, Palette, MessageSquare, Image, Calculator, BookImage, LogIn, LogOut, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/hooks/useAuth';
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { toast } from 'sonner';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const { isAuthenticated, user, logout } = useAuth();
+  const navigate = useNavigate();
+  
+  const handleLogout = () => {
+    logout();
+    toast.success("Logged out successfully");
+    navigate("/");
+  };
   
   return (
     <nav className="bg-background border-b border-border py-4">
@@ -44,9 +61,59 @@ const Navbar = () => {
           </div>
           
           <div className="hidden md:flex items-center">
-            <Button variant="default">
-              <LogIn className="mr-2 h-4 w-4" /> Sign In
-            </Button>
+            {isAuthenticated ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback className="bg-accent text-accent-foreground">
+                        {user?.name ? user.name[0].toUpperCase() : user?.email[0].toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <div className="flex items-center justify-start gap-2 p-2">
+                    <div className="flex flex-col space-y-1 leading-none">
+                      {user?.name && (
+                        <p className="font-medium">{user.name}</p>
+                      )}
+                      <p className="w-[200px] truncate text-sm text-muted-foreground">
+                        {user?.email}
+                      </p>
+                    </div>
+                  </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link to="/gallery">My Designs</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/settings">Settings</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    className="cursor-pointer text-destructive focus:text-destructive" 
+                    onClick={handleLogout}
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Log out</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <div className="flex gap-2">
+                <Button asChild variant="outline">
+                  <Link to="/login">
+                    <LogIn className="mr-2 h-4 w-4" /> Sign In
+                  </Link>
+                </Button>
+                <Button asChild>
+                  <Link to="/register">
+                    <UserPlus className="mr-2 h-4 w-4" /> Sign Up
+                  </Link>
+                </Button>
+              </div>
+            )}
           </div>
           
           {/* Mobile Navigation Toggle */}
@@ -127,9 +194,43 @@ const Navbar = () => {
               </div>
             </Link>
             <div className="mt-4 pt-4 border-t border-border">
-              <Button className="w-full">
-                <LogIn className="mr-2 h-4 w-4" /> Sign In
-              </Button>
+              {isAuthenticated ? (
+                <>
+                  <div className="px-3 py-2 mb-2">
+                    <div className="flex items-center">
+                      <Avatar className="h-8 w-8 mr-2">
+                        <AvatarFallback className="bg-accent text-accent-foreground">
+                          {user?.name ? user.name[0].toUpperCase() : user?.email[0].toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        {user?.name && <p className="font-medium">{user.name}</p>}
+                        <p className="text-sm text-muted-foreground">{user?.email}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <Button 
+                    className="w-full flex items-center justify-center" 
+                    variant="outline" 
+                    onClick={handleLogout}
+                  >
+                    <LogOut className="mr-2 h-4 w-4" /> Log Out
+                  </Button>
+                </>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <Button asChild className="w-full">
+                    <Link to="/login">
+                      <LogIn className="mr-2 h-4 w-4" /> Sign In
+                    </Link>
+                  </Button>
+                  <Button asChild variant="outline" className="w-full">
+                    <Link to="/register">
+                      <UserPlus className="mr-2 h-4 w-4" /> Sign Up
+                    </Link>
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         )}

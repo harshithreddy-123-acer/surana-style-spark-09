@@ -5,48 +5,63 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Loader2, Save, Download, Share, Image, Wand, Palette } from 'lucide-react';
-import { useLocation } from 'react-router-dom';
+import { 
+  Loader2, Save, Download, Share, Image, Wand, 
+  Palette, Home, BookOpen, PaintBucket, Upload
+} from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { getRunwareService, GeneratedImage } from './RunwareService';
+import { ImageUpload } from '@/components/ui/image-upload';
+import { RoomTypeSelector } from '@/components/design/RoomTypeSelector';
+import { StyleSelector } from '@/components/design/StyleSelector';
+import { ColorSchemeSelector } from '@/components/design/ColorSchemeSelector';
+import { Room, Style, ColorScheme } from '@/types/design';
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
+import { 
+  getRandomMockDesign, 
+  mockDesignToGeneratedImage 
+} from '@/utils/mockDesigns';
 
-interface Room {
-  id: string;
-  name: string;
-}
-
-interface Style {
-  id: string;
-  name: string;
-}
-
+// Define room types with icons
 const rooms: Room[] = [
-  { id: 'living-room', name: 'Living Room' },
-  { id: 'bedroom', name: 'Bedroom' },
-  { id: 'kitchen', name: 'Kitchen' },
-  { id: 'bathroom', name: 'Bathroom' },
-  { id: 'dining-room', name: 'Dining Room' },
-  { id: 'office', name: 'Home Office' },
-  { id: 'outdoor', name: 'Outdoor Space' },
+  { id: 'living-room', name: 'Living Room', icon: <Home className="h-8 w-8" /> },
+  { id: 'bedroom', name: 'Bedroom', icon: <BookOpen className="h-8 w-8" /> },
+  { id: 'kitchen', name: 'Kitchen', icon: <PaintBucket className="h-8 w-8" /> },
+  { id: 'bathroom', name: 'Bathroom', icon: <Palette className="h-8 w-8" /> },
+  { id: 'dining-room', name: 'Dining Room', icon: <Image className="h-8 w-8" /> },
+  { id: 'office', name: 'Home Office', icon: <Wand className="h-8 w-8" /> },
+  { id: 'outdoor', name: 'Outdoor Space', icon: <Upload className="h-8 w-8" /> },
 ];
 
+// Define styles with thumbnail images
 const styles: Style[] = [
-  { id: 'modern', name: 'Modern' },
-  { id: 'traditional', name: 'Traditional' },
-  { id: 'scandinavian', name: 'Scandinavian' },
-  { id: 'industrial', name: 'Industrial' },
-  { id: 'minimalist', name: 'Minimalist' },
-  { id: 'bohemian', name: 'Bohemian' },
-  { id: 'mid-century', name: 'Mid-Century Modern' },
-  { id: 'farmhouse', name: 'Farmhouse' },
-  { id: 'coastal', name: 'Coastal' },
-  { id: 'contemporary', name: 'Contemporary' },
+  { id: 'modern', name: 'Modern', thumbnail: 'https://images.unsplash.com/photo-1617104551722-6988fc29a541?w=200&h=200&fit=crop' },
+  { id: 'traditional', name: 'Traditional', thumbnail: 'https://images.unsplash.com/photo-1618221639244-c1a8502c0eb9?w=200&h=200&fit=crop' },
+  { id: 'scandinavian', name: 'Scandinavian', thumbnail: 'https://images.unsplash.com/photo-1595515106969-1ce29566ff1c?w=200&h=200&fit=crop' },
+  { id: 'industrial', name: 'Industrial', thumbnail: 'https://images.unsplash.com/photo-1634712282287-14ed57b9cc14?w=200&h=200&fit=crop' },
+  { id: 'minimalist', name: 'Minimalist', thumbnail: 'https://images.unsplash.com/photo-1631679706909-1844bbd07221?w=200&h=200&fit=crop' },
+  { id: 'bohemian', name: 'Bohemian', thumbnail: 'https://images.unsplash.com/photo-1617098600599-c2dfe9259814?w=200&h=200&fit=crop' },
+  { id: 'mid-century', name: 'Mid-Century', thumbnail: 'https://images.unsplash.com/photo-1617103996702-96ff29b1c467?w=200&h=200&fit=crop' },
+  { id: 'farmhouse', name: 'Farmhouse', thumbnail: 'https://images.unsplash.com/photo-1618220179428-22790b461013?w=200&h=200&fit=crop' },
+];
+
+// Define color schemes with color swatches
+const colorSchemes: ColorScheme[] = [
+  { id: '', name: 'Any Colors', colors: ['#FFFFFF', '#CCCCCC', '#999999', '#666666'] },
+  { id: 'neutral', name: 'Neutral', colors: ['#F5F5F5', '#E0E0E0', '#BDBDBD', '#757575'] },
+  { id: 'warm', name: 'Warm', colors: ['#FFF3E0', '#FFE0B2', '#FFCC80', '#FFB74D'] },
+  { id: 'cool', name: 'Cool', colors: ['#E3F2FD', '#BBDEFB', '#90CAF9', '#64B5F6'] },
+  { id: 'monochromatic', name: 'Monochromatic', colors: ['#ECEFF1', '#CFD8DC', '#B0BEC5', '#90A4AE'] },
+  { id: 'bold', name: 'Bold & Colorful', colors: ['#FF1744', '#F57C00', '#FFEB3B', '#00B0FF'] },
+  { id: 'pastel', name: 'Pastel', colors: ['#F8BBD0', '#C5CAE9', '#B2DFDB', '#DCEDC8'] },
+  { id: 'earth', name: 'Earth Tones', colors: ['#8D6E63', '#A1887F', '#BCAAA4', '#D7CCC8'] },
 ];
 
 const DesignGenerator = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [room, setRoom] = useState('living-room');
   const [style, setStyle] = useState('modern');
   const [prompt, setPrompt] = useState('');
@@ -55,6 +70,8 @@ const DesignGenerator = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
   const [savedImages, setSavedImages] = useState<GeneratedImage[]>([]);
+  const [demoMode, setDemoMode] = useState(false);
+  const [referenceImage, setReferenceImage] = useState<string | null>(null);
   
   // Optional settings
   const [colorScheme, setColorScheme] = useState('');
@@ -108,33 +125,49 @@ const DesignGenerator = () => {
       ? `with ${selectedColorScheme} color scheme` 
       : '';
     
-    const basePrompt = `A photorealistic interior design for a ${styleName} ${roomName}, ${budgetDesc} ${colorDesc}. The space should have great lighting, feature realistic furniture, decor, and textures. 8k, detailed render, interior design photography`;
+    let referenceDesc = referenceImage 
+      ? 'using the uploaded reference image for inspiration' 
+      : '';
+    
+    const basePrompt = `A photorealistic interior design for a ${styleName} ${roomName}, ${budgetDesc} ${colorDesc} ${referenceDesc}. The space should have great lighting, feature realistic furniture, decor, and textures. 8k, detailed render, interior design photography`;
     
     setPrompt(basePrompt);
   };
   
   const handleGenerate = async () => {
-    if (!apiKey) {
-      toast.error('Please enter your Runware API key first.');
+    if (!apiKey && !demoMode) {
+      toast.error('Please enter your Runware API key or use Demo Mode');
       setShowApiKeyInput(true);
       return;
     }
     
     if (!prompt.trim()) {
-      toast.error('Please enter a prompt for the design.');
+      toast.error('Please enter a prompt for the design');
       return;
     }
     
     setIsGenerating(true);
     
     try {
-      const runwareService = getRunwareService(apiKey);
+      let generatedImage;
       
-      const generatedImage = await runwareService.generateImage({
-        positivePrompt: prompt,
-        width: 1024,
-        height: 768
-      });
+      if (demoMode) {
+        // Use mock data in demo mode
+        const mockDesign = getRandomMockDesign(room, style);
+        generatedImage = mockDesignToGeneratedImage(mockDesign);
+        
+        // Simulate API delay
+        await new Promise(resolve => setTimeout(resolve, 1500));
+      } else {
+        // Use real API
+        const runwareService = getRunwareService(apiKey);
+        
+        generatedImage = await runwareService.generateImage({
+          positivePrompt: prompt,
+          width: 1024,
+          height: 768
+        });
+      }
       
       setGeneratedImages(prev => [generatedImage, ...prev]);
       toast.success('Design generated successfully!');
@@ -188,10 +221,23 @@ const DesignGenerator = () => {
     if (apiKey.trim()) {
       localStorage.setItem('runwareApiKey', apiKey);
       setShowApiKeyInput(false);
+      setDemoMode(false);
       toast.success('API key saved!');
     } else {
-      toast.error('Please enter a valid API key');
+      toast.error('Please enter a valid API key or use Demo Mode');
     }
+  };
+  
+  const enableDemoMode = () => {
+    setDemoMode(true);
+    setShowApiKeyInput(false);
+    toast.success('Demo Mode enabled! You can now generate designs without an API key.');
+  };
+  
+  const handleReferenceImage = (imageUrl: string) => {
+    setReferenceImage(imageUrl);
+    // Update the prompt to include reference to the uploaded image
+    generatePrompt(room, style, colorScheme, budget[0]);
   };
   
   if (showApiKeyInput) {
@@ -222,9 +268,13 @@ const DesignGenerator = () => {
                 placeholder="Enter your API key"
                 className="w-full px-3 py-2 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-accent"
               />
-              <Button onClick={saveApiKey} className="w-full">Save API Key</Button>
+              <div className="flex gap-2">
+                <Button onClick={saveApiKey} className="w-full">Save API Key</Button>
+                <Button onClick={enableDemoMode} variant="outline" className="w-full">Use Demo Mode</Button>
+              </div>
               <p className="text-xs text-muted-foreground mt-2">
                 Note: Your API key is stored locally on your device and not sent to Surana AI servers.
+                Demo Mode uses pre-generated designs and doesn't require an API key.
               </p>
             </div>
           </CardContent>
@@ -235,6 +285,18 @@ const DesignGenerator = () => {
   
   return (
     <div className="container mx-auto px-4 py-8">
+      <Breadcrumb className="mb-4">
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/">Home</BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/design-generator">Design Generator</BreadcrumbLink>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+
       <Tabs defaultValue="generate" className="max-w-6xl mx-auto">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-3xl font-serif font-bold">AI Design Generator</h2>
@@ -255,53 +317,35 @@ const DesignGenerator = () => {
                 <CardContent className="p-6 space-y-6">
                   <div>
                     <Label htmlFor="room" className="text-base font-medium">Room Type</Label>
-                    <Select value={room} onValueChange={setRoom}>
-                      <SelectTrigger className="mt-2">
-                        <SelectValue placeholder="Select room" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {rooms.map((roomOption) => (
-                          <SelectItem key={roomOption.id} value={roomOption.id}>
-                            {roomOption.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="mt-2">
+                      <RoomTypeSelector 
+                        rooms={rooms} 
+                        selectedRoom={room} 
+                        onChange={setRoom} 
+                      />
+                    </div>
                   </div>
                   
                   <div>
                     <Label htmlFor="style" className="text-base font-medium">Design Style</Label>
-                    <Select value={style} onValueChange={setStyle}>
-                      <SelectTrigger className="mt-2">
-                        <SelectValue placeholder="Select style" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {styles.map((styleOption) => (
-                          <SelectItem key={styleOption.id} value={styleOption.id}>
-                            {styleOption.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="mt-2">
+                      <StyleSelector 
+                        styles={styles} 
+                        selectedStyle={style} 
+                        onChange={setStyle} 
+                      />
+                    </div>
                   </div>
                   
                   <div>
-                    <Label htmlFor="colorScheme" className="text-base font-medium">Color Scheme (Optional)</Label>
-                    <Select value={colorScheme} onValueChange={setColorScheme}>
-                      <SelectTrigger className="mt-2">
-                        <SelectValue placeholder="Select colors" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="">Any colors</SelectItem>
-                        <SelectItem value="neutral">Neutral</SelectItem>
-                        <SelectItem value="warm">Warm</SelectItem>
-                        <SelectItem value="cool">Cool</SelectItem>
-                        <SelectItem value="monochromatic">Monochromatic</SelectItem>
-                        <SelectItem value="bold">Bold & Colorful</SelectItem>
-                        <SelectItem value="pastel">Pastel</SelectItem>
-                        <SelectItem value="earth tone">Earth Tones</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label htmlFor="colorScheme" className="text-base font-medium">Color Scheme</Label>
+                    <div className="mt-2">
+                      <ColorSchemeSelector 
+                        colorSchemes={colorSchemes} 
+                        selectedColorScheme={colorScheme} 
+                        onChange={setColorScheme} 
+                      />
+                    </div>
                   </div>
                   
                   <div>
@@ -319,6 +363,13 @@ const DesignGenerator = () => {
                         <span>Mid-range</span>
                         <span>Luxury</span>
                       </div>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="reference" className="text-base font-medium">Reference Image (Optional)</Label>
+                    <div className="mt-2">
+                      <ImageUpload onImageUpload={handleReferenceImage} />
                     </div>
                   </div>
                   
@@ -354,15 +405,19 @@ const DesignGenerator = () => {
                     )}
                   </Button>
                   
-                  <p className="text-xs text-center text-muted-foreground">
-                    <Button
-                      variant="link"
-                      className="text-xs p-0 h-auto"
-                      onClick={() => setShowApiKeyInput(true)}
-                    >
-                      Update API Key
-                    </Button>
-                  </p>
+                  <div className="text-xs text-center text-muted-foreground">
+                    {demoMode ? (
+                      <span>Demo Mode Active - Using sample designs</span>
+                    ) : (
+                      <Button
+                        variant="link"
+                        className="text-xs p-0 h-auto"
+                        onClick={() => setShowApiKeyInput(true)}
+                      >
+                        Update API Key
+                      </Button>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             </div>

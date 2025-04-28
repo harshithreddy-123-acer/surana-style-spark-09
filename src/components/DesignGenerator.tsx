@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,20 +10,19 @@ import {
   Loader2, Save, Download, Share, Image, Wand, 
   Palette, Home, BookOpen, PaintBucket, Upload
 } from 'lucide-react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { getRunwareService, GeneratedImage } from './RunwareService';
 import { ImageUpload } from '@/components/ui/image-upload';
 import { RoomTypeSelector } from '@/components/design/RoomTypeSelector';
 import { StyleSelector } from '@/components/design/StyleSelector';
 import { ColorSchemeSelector } from '@/components/design/ColorSchemeSelector';
 import { Room, Style, ColorScheme } from '@/types/design';
-import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
+import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 import { 
   getRandomMockDesign, 
   mockDesignToGeneratedImage 
 } from '@/utils/mockDesigns';
 
-// Define room types with icons
 const rooms: Room[] = [
   { id: 'living-room', name: 'Living Room', icon: <Home className="h-8 w-8" /> },
   { id: 'bedroom', name: 'Bedroom', icon: <BookOpen className="h-8 w-8" /> },
@@ -35,7 +33,6 @@ const rooms: Room[] = [
   { id: 'outdoor', name: 'Outdoor Space', icon: <Upload className="h-8 w-8" /> },
 ];
 
-// Define styles with thumbnail images
 const styles: Style[] = [
   { id: 'modern', name: 'Modern', thumbnail: 'https://images.unsplash.com/photo-1617104551722-6988fc29a541?w=200&h=200&fit=crop' },
   { id: 'traditional', name: 'Traditional', thumbnail: 'https://images.unsplash.com/photo-1618221639244-c1a8502c0eb9?w=200&h=200&fit=crop' },
@@ -47,7 +44,6 @@ const styles: Style[] = [
   { id: 'farmhouse', name: 'Farmhouse', thumbnail: 'https://images.unsplash.com/photo-1618220179428-22790b461013?w=200&h=200&fit=crop' },
 ];
 
-// Define color schemes with color swatches
 const colorSchemes: ColorScheme[] = [
   { id: '', name: 'Any Colors', colors: ['#FFFFFF', '#CCCCCC', '#999999', '#666666'] },
   { id: 'neutral', name: 'Neutral', colors: ['#F5F5F5', '#E0E0E0', '#BDBDBD', '#757575'] },
@@ -73,12 +69,10 @@ const DesignGenerator = () => {
   const [demoMode, setDemoMode] = useState(false);
   const [referenceImage, setReferenceImage] = useState<string | null>(null);
   
-  // Optional settings
   const [colorScheme, setColorScheme] = useState('');
-  const [budget, setBudget] = useState([50]); // Mid-range by default (0-100 scale)
+  const [budget, setBudget] = useState([50]);
   
   useEffect(() => {
-    // If we have style preference from the quiz, use it
     if (location.state?.styleProfile?.dominantStyle) {
       const quizStyle = location.state.styleProfile.dominantStyle;
       const matchedStyle = styles.find(s => s.id === quizStyle);
@@ -87,7 +81,6 @@ const DesignGenerator = () => {
       }
     }
     
-    // Load saved images from localStorage
     const savedImagesFromStorage = localStorage.getItem('savedDesignImages');
     if (savedImagesFromStorage) {
       try {
@@ -99,7 +92,6 @@ const DesignGenerator = () => {
   }, [location.state]);
   
   useEffect(() => {
-    // Generate initial prompt when room or style changes
     generatePrompt(room, style, colorScheme, budget[0]);
   }, [room, style, colorScheme, budget]);
   
@@ -152,14 +144,11 @@ const DesignGenerator = () => {
       let generatedImage;
       
       if (demoMode) {
-        // Use mock data in demo mode
         const mockDesign = getRandomMockDesign(room, style);
         generatedImage = mockDesignToGeneratedImage(mockDesign);
         
-        // Simulate API delay
         await new Promise(resolve => setTimeout(resolve, 1500));
       } else {
-        // Use real API
         const runwareService = getRunwareService(apiKey);
         
         generatedImage = await runwareService.generateImage({
@@ -184,7 +173,6 @@ const DesignGenerator = () => {
     setSavedImages(updatedSavedImages);
     localStorage.setItem('savedDesignImages', JSON.stringify(updatedSavedImages));
     
-    // Also store for the gallery
     const galleryImages = JSON.parse(localStorage.getItem('galleryImages') || '[]');
     localStorage.setItem('galleryImages', JSON.stringify([...galleryImages, image]));
     
@@ -211,7 +199,6 @@ const DesignGenerator = () => {
         .then(() => console.log('Successful share'))
         .catch((error) => console.log('Error sharing', error));
     } else {
-      // Fallback - copy to clipboard
       navigator.clipboard.writeText(imageUrl);
       toast.success('Image URL copied to clipboard!');
     }
@@ -236,7 +223,6 @@ const DesignGenerator = () => {
   
   const handleReferenceImage = (imageUrl: string) => {
     setReferenceImage(imageUrl);
-    // Update the prompt to include reference to the uploaded image
     generatePrompt(room, style, colorScheme, budget[0]);
   };
   
@@ -288,11 +274,11 @@ const DesignGenerator = () => {
       <Breadcrumb className="mb-4">
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbLink href="/">Home</BreadcrumbLink>
+            <Link to="/" className="text-accent hover:text-accent-foreground transition-colors">Home</Link>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
-            <BreadcrumbLink href="/design-generator">Design Generator</BreadcrumbLink>
+            <Link to="/design-generator" className="text-foreground">Design Generator</Link>
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>

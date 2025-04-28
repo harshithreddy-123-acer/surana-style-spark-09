@@ -20,3 +20,13 @@ export interface ColorScheme {
   colors: string[];
   description?: string;
 }
+
+export interface GeneratedDesign {
+  id: string;
+  imageURL: string;
+  prompt: string;
+  roomType: string;
+  style: string;
+  colorScheme?: string;
+  createdAt: number;
+}

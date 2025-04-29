@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { 
   Search, Plus, X, Download, Copy, Palette, BookImage, 
-  Move, Trash, Save, Loader2, Share, Upload, FolderPlus, ImagePlus
+  Move, Trash, Save, Loader2, Share, Upload, FolderPlus, ImagePlus, Image
 } from 'lucide-react';
 import { getRunwareService, GeneratedImage } from './RunwareService';
 import { ImageUpload } from '@/components/ui/image-upload';
@@ -56,6 +56,7 @@ const MoodboardGenerator = () => {
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [currentZIndex, setCurrentZIndex] = useState(1);
   const [isDraggingExternalImage, setIsDraggingExternalImage] = useState(false);
+  const [searchSource, setSearchSource] = useState<'generated' | 'unsplash'>('unsplash');
   
   const moodboardRef = useRef<HTMLDivElement>(null);
   
@@ -152,6 +153,28 @@ const MoodboardGenerator = () => {
     setCurrentZIndex(currentZIndex + 1);
   };
   
+  const fetchUnsplashImages = async (query: string) => {
+    const accessKey = 'pONUi13jbIKmsL5rYOEQSouC3E2-_DXlp954chQTkhw'; // Unsplash demo API key
+    try {
+      const response = await fetch(`https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=12`, {
+        headers: {
+          'Authorization': `Client-ID ${accessKey}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch images from Unsplash');
+      }
+      
+      const data = await response.json();
+      return data.results.map((item: any) => item.urls.regular);
+    } catch (error) {
+      console.error('Error fetching Unsplash images:', error);
+      toast.error('Failed to fetch images. Using sample images instead.');
+      return sampleImages;
+    }
+  };
+  
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
     
@@ -159,7 +182,7 @@ const MoodboardGenerator = () => {
     
     if (selectedTab === 'images') {
       try {
-        if (apiKey) {
+        if (searchSource === 'generated' && apiKey) {
           const runwareService = getRunwareService(apiKey);
           
           const generatedImage = await runwareService.generateImage({
@@ -170,12 +193,13 @@ const MoodboardGenerator = () => {
           
           setSearchResults([generatedImage.imageURL, ...sampleImages]);
         } else {
-          // If no API key, just use samples
-          setSearchResults(sampleImages);
+          // Use Unsplash API
+          const unsplashImages = await fetchUnsplashImages(searchQuery);
+          setSearchResults(unsplashImages);
         }
       } catch (error) {
-        console.error('Error generating image:', error);
-        toast.error('Failed to generate image. Using sample images instead.');
+        console.error('Error generating/fetching images:', error);
+        toast.error('Failed to get images. Using sample images instead.');
         setSearchResults(sampleImages);
       }
     } else {
@@ -411,27 +435,53 @@ const MoodboardGenerator = () => {
                       </TabsList>
                       
                       <TabsContent value="images" className="space-y-4 pt-4">
-                        <div className="flex">
-                          <Input
-                            type="text"
-                            placeholder="Search for images..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                            className="flex-1"
-                          />
-                          <Button 
-                            variant="outline" 
-                            onClick={handleSearch}
-                            disabled={isSearching}
-                            className="ml-2"
-                          >
-                            {isSearching ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Search className="h-4 w-4" />
-                            )}
-                          </Button>
+                        <div className="flex flex-col space-y-3">
+                          <div className="flex">
+                            <Input
+                              type="text"
+                              placeholder="Search for images..."
+                              value={searchQuery}
+                              onChange={(e) => setSearchQuery(e.target.value)}
+                              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                              className="flex-1"
+                            />
+                            <Button 
+                              variant="outline" 
+                              onClick={handleSearch}
+                              disabled={isSearching}
+                              className="ml-2"
+                            >
+                              {isSearching ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Search className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </div>
+                          
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Search source:</span>
+                            <div className="flex gap-2">
+                              <Button
+                                variant={searchSource === 'unsplash' ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => setSearchSource('unsplash')}
+                                className="h-8"
+                              >
+                                <Image className="h-4 w-4 mr-1" /> Unsplash
+                              </Button>
+                              <Button
+                                variant={searchSource === 'generated' ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => setSearchSource('generated')}
+                                className="h-8"
+                                disabled={!apiKey}
+                                title={!apiKey ? "Set API key to enable AI generated images" : ""}
+                              >
+                                <Palette className="h-4 w-4 mr-1" /> AI Generated
+                              </Button>
+                            </div>
+                          </div>
                         </div>
                         
                         <div className="grid grid-cols-2 gap-2">

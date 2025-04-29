@@ -8,9 +8,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { 
   Search, Plus, X, Download, Copy, Palette, BookImage, 
-  Move, Trash, Save, Loader2, Share 
+  Move, Trash, Save, Loader2, Share, Upload, FolderPlus, ImagePlus
 } from 'lucide-react';
 import { getRunwareService, GeneratedImage } from './RunwareService';
+import { ImageUpload } from '@/components/ui/image-upload';
 
 interface MoodboardItem {
   id: string;
@@ -54,6 +55,7 @@ const MoodboardGenerator = () => {
   const [draggedItem, setDraggedItem] = useState<MoodboardItem | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [currentZIndex, setCurrentZIndex] = useState(1);
+  const [isDraggingExternalImage, setIsDraggingExternalImage] = useState(false);
   
   const moodboardRef = useRef<HTMLDivElement>(null);
   
@@ -68,6 +70,87 @@ const MoodboardGenerator = () => {
       }
     }
   }, []);
+  
+  // Handle dropping external images
+  useEffect(() => {
+    const handleDrop = (e: DragEvent) => {
+      e.preventDefault();
+      
+      if (!moodboardRef.current) return;
+      
+      const rect = moodboardRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      // Handle image URLs
+      let imageUrl = e.dataTransfer?.getData('text/plain') || '';
+      
+      // Check if it's a valid image URL
+      if (imageUrl && (imageUrl.match(/\.(jpeg|jpg|gif|png)$/) !== null || imageUrl.startsWith('http'))) {
+        addItemAtPosition('image', imageUrl, x, y);
+        setIsDraggingExternalImage(false);
+        return;
+      }
+      
+      // Handle dropped files (images)
+      if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+        const file = e.dataTransfer.files[0];
+        
+        if (file.type.startsWith('image/')) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            if (event.target?.result) {
+              addItemAtPosition('image', event.target.result.toString(), x, y);
+            }
+          };
+          reader.readAsDataURL(file);
+        }
+      }
+      
+      setIsDraggingExternalImage(false);
+    };
+    
+    const handleDragOver = (e: DragEvent) => {
+      e.preventDefault();
+      setIsDraggingExternalImage(true);
+    };
+    
+    const handleDragLeave = () => {
+      setIsDraggingExternalImage(false);
+    };
+    
+    const moodboardElement = moodboardRef.current;
+    
+    if (moodboardElement) {
+      moodboardElement.addEventListener('drop', handleDrop);
+      moodboardElement.addEventListener('dragover', handleDragOver);
+      moodboardElement.addEventListener('dragleave', handleDragLeave);
+    }
+    
+    return () => {
+      if (moodboardElement) {
+        moodboardElement.removeEventListener('drop', handleDrop);
+        moodboardElement.removeEventListener('dragover', handleDragOver);
+        moodboardElement.removeEventListener('dragleave', handleDragLeave);
+      }
+    };
+  }, []);
+  
+  const addItemAtPosition = (type: 'image' | 'color' | 'text', content: string, x: number, y: number) => {
+    const newItem: MoodboardItem = {
+      id: `item-${Date.now()}`,
+      type,
+      content,
+      width: type === 'image' ? 150 : type === 'color' ? 80 : 150,
+      height: type === 'image' ? 150 : type === 'color' ? 80 : 30,
+      x,
+      y,
+      zIndex: currentZIndex,
+    };
+    
+    setMoodboardItems([...moodboardItems, newItem]);
+    setCurrentZIndex(currentZIndex + 1);
+  };
   
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
@@ -186,6 +269,11 @@ const MoodboardGenerator = () => {
       item.id === id ? { ...item, content: newContent } : item
     );
     setMoodboardItems(updatedItems);
+  };
+  
+  const handleUploadImage = (imageUrl: string) => {
+    handleAddItem(imageUrl);
+    toast.success('Image uploaded and added to your moodboard');
   };
   
   const handleSaveMoodboard = () => {
@@ -316,9 +404,10 @@ const MoodboardGenerator = () => {
                   
                   <div>
                     <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-                      <TabsList className="grid w-full grid-cols-2">
+                      <TabsList className="grid w-full grid-cols-3">
                         <TabsTrigger value="images">Images</TabsTrigger>
                         <TabsTrigger value="colors">Colors</TabsTrigger>
+                        <TabsTrigger value="uploads">Upload</TabsTrigger>
                       </TabsList>
                       
                       <TabsContent value="images" className="space-y-4 pt-4">
@@ -351,6 +440,10 @@ const MoodboardGenerator = () => {
                               <div 
                                 key={index} 
                                 className="aspect-square rounded-md overflow-hidden cursor-pointer relative group"
+                                draggable="true"
+                                onDragStart={(e) => {
+                                  e.dataTransfer.setData('text/plain', image);
+                                }}
                               >
                                 <img 
                                   src={image} 
@@ -375,6 +468,9 @@ const MoodboardGenerator = () => {
                             </div>
                           )}
                         </div>
+                        <p className="text-xs text-muted-foreground">
+                          Tip: You can drag images directly to the board!
+                        </p>
                       </TabsContent>
                       
                       <TabsContent value="colors" className="space-y-4 pt-4">
@@ -408,12 +504,28 @@ const MoodboardGenerator = () => {
                               className="aspect-square rounded-md cursor-pointer relative group"
                               style={{ backgroundColor: color }}
                               onClick={() => handleAddItem(color)}
+                              draggable="true"
+                              onDragStart={(e) => {
+                                e.dataTransfer.setData('text/plain', color);
+                              }}
                             >
                               <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-md">
                                 <Plus className="h-4 w-4 text-white" />
                               </div>
                             </div>
                           ))}
+                        </div>
+                      </TabsContent>
+                      
+                      <TabsContent value="uploads" className="space-y-4 pt-4">
+                        <div className="flex flex-col space-y-4">
+                          <ImageUpload
+                            onImageUpload={handleUploadImage}
+                            className="w-full"
+                          />
+                          <p className="text-sm text-muted-foreground">
+                            Upload your own images to add to the moodboard
+                          </p>
                         </div>
                       </TabsContent>
                     </Tabs>
@@ -475,7 +587,7 @@ const MoodboardGenerator = () => {
                 <CardContent className="p-4">
                   <div 
                     ref={moodboardRef}
-                    className="bg-white border border-dashed border-border rounded-md h-[600px] w-full relative overflow-hidden"
+                    className={`bg-white border ${isDraggingExternalImage ? 'border-accent border-2' : 'border-dashed border-border'} rounded-md h-[600px] w-full relative overflow-hidden`}
                     onMouseMove={handleMouseMove}
                     onMouseUp={handleMouseUp}
                     onMouseLeave={handleMouseUp}
@@ -551,12 +663,24 @@ const MoodboardGenerator = () => {
                       </div>
                     ))}
                     
-                    {moodboardItems.length === 0 && (
+                    {isDraggingExternalImage && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-accent/10 pointer-events-none">
+                        <div className="bg-accent/20 rounded-lg p-6 border-2 border-dashed border-accent">
+                          <Upload className="h-12 w-12 text-accent mx-auto mb-2" />
+                          <p className="text-accent font-medium">Drop image here</p>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {moodboardItems.length === 0 && !isDraggingExternalImage && (
                       <div className="flex flex-col items-center justify-center h-full text-center p-6">
                         <BookImage className="h-16 w-16 text-muted-foreground mb-4 opacity-30" />
                         <h3 className="text-xl font-medium text-muted-foreground">Your moodboard is empty</h3>
                         <p className="text-muted-foreground mt-2 max-w-md">
                           Add images, colors, and text elements from the left panel to create your perfect design inspiration board.
+                        </p>
+                        <p className="text-muted-foreground mt-2 text-sm">
+                          Tip: You can also drag and drop images directly from the web!
                         </p>
                       </div>
                     )}
